@@ -182,16 +182,90 @@ export const skusApi = {
     apiClient.patch<ApiSuccessResponse<Sku>>(`/tenants/${tenantId}/skus/${skuId}`, data),
   delete: (tenantId: string, skuId: string) =>
     apiClient.delete(`/tenants/${tenantId}/skus/${skuId}`),
+  setAttribute: (tenantId: string, skuId: string, attributeId: string, value: string | null) =>
+    apiClient.put<ApiSuccessResponse<unknown>>(
+      `/tenants/${tenantId}/skus/${skuId}/attributes/${attributeId}`,
+      { value }
+    ),
+  bulkUpdate: (tenantId: string, payload: { skuIds: string[]; patch: Record<string, unknown> }) =>
+    apiClient.post<ApiSuccessResponse<{ updated: number }>>(
+      `/tenants/${tenantId}/skus/bulk-update`, payload
+    ),
+  bulkDelete: (tenantId: string, skuIds: string[]) =>
+    apiClient.post<ApiSuccessResponse<{ deleted: number }>>(
+      `/tenants/${tenantId}/skus/bulk-delete`, { skuIds }
+    ),
+  bulkExport: (tenantId: string, filters: { skuIds?: string[]; categoryId?: string; status?: string }) =>
+    apiClient.post(
+      `/tenants/${tenantId}/skus/bulk-export`, filters,
+      { responseType: 'blob' }
+    ),
+};
+
+// Attribute Definitions (nested under categories)
+export const attributesApi = {
+  list: (tenantId: string, categoryId: string) =>
+    apiClient.get<ApiSuccessResponse<AttributeDefinition[]>>(
+      `/tenants/${tenantId}/categories/${categoryId}/attributes`
+    ),
+  create: (tenantId: string, categoryId: string, data: unknown) =>
+    apiClient.post<ApiSuccessResponse<AttributeDefinition>>(
+      `/tenants/${tenantId}/categories/${categoryId}/attributes`,
+      data
+    ),
+  update: (tenantId: string, categoryId: string, attributeId: string, data: unknown) =>
+    apiClient.patch<ApiSuccessResponse<AttributeDefinition>>(
+      `/tenants/${tenantId}/categories/${categoryId}/attributes/${attributeId}`,
+      data
+    ),
+  delete: (tenantId: string, categoryId: string, attributeId: string) =>
+    apiClient.delete(`/tenants/${tenantId}/categories/${categoryId}/attributes/${attributeId}`),
 };
 
 // Data Imports
+export interface ImportPreview {
+  headers: string[];
+  rows: Record<string, string>[];
+  estimatedRowCount: number;
+}
+export interface ImportUploadResult {
+  id: string;
+  status: string;
+  fileName: string;
+  preview: ImportPreview;
+  suggestedMapping: Record<string, string>;
+}
+
 export const importsApi = {
   list: (tenantId: string) =>
     apiClient.get<ApiSuccessResponse<DataImport[]>>(`/tenants/${tenantId}/imports`),
   get: (tenantId: string, importId: string) =>
-    apiClient.get<ApiSuccessResponse<DataImport>>(`/tenants/${tenantId}/imports/${importId}`),
-  create: (tenantId: string, data: unknown) =>
-    apiClient.post<ApiSuccessResponse<DataImport>>(`/tenants/${tenantId}/imports`, data),
+    apiClient.get<ApiSuccessResponse<DataImport & { errors: unknown[]; errorCount: number }>>(
+      `/tenants/${tenantId}/imports/${importId}`
+    ),
+  upload: (tenantId: string, file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return apiClient.post<ApiSuccessResponse<ImportUploadResult>>(
+      `/tenants/${tenantId}/imports`,
+      form,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    );
+  },
+  validate: (
+    tenantId: string,
+    importId: string,
+    payload: { categoryId: string; mapping: Record<string, string> }
+  ) =>
+    apiClient.post<ApiSuccessResponse<{ id: string; status: string }>>(
+      `/tenants/${tenantId}/imports/${importId}/validate`,
+      payload
+    ),
+  process: (tenantId: string, importId: string, payload?: { skipInvalid?: boolean }) =>
+    apiClient.post<ApiSuccessResponse<{ id: string; status: string }>>(
+      `/tenants/${tenantId}/imports/${importId}/process`,
+      payload ?? {}
+    ),
 };
 
 // Reports

@@ -317,14 +317,31 @@ GET /api/v1/tenants/:tenantId/categories/:categoryId/attributes
 - Test coverage target: >70%
 
 ### 2.7 Deliverables
-- [ ] Tenant setup API operational
-- [ ] CSV import pipeline functional
-- [ ] Category & attribute management APIs
-- [ ] Complete onboarding wizard UI
-- [ ] Data validation engine
-- [ ] Import progress tracking (real-time)
-- [ ] Comprehensive test coverage
-- [ ] Documentation & API specs
+- [x] Tenant setup API operational
+- [x] CSV import pipeline functional *(upload → preview → validate → process; in-process worker)*
+- [x] Category & attribute management APIs *(soft-delete, tree view, type-change guard)*
+- [x] Complete onboarding wizard UI *(6 steps, MUI + Redux)*
+- [x] Data validation engine *(per-attribute type coercion, required checks, duplicate detection)*
+- [x] Import progress tracking (real-time) *(1.5s polling; WebSocket upgrade in Phase 5)*
+- [x] Comprehensive test coverage *(unit-level; DB integration + E2E deferred)*
+- [x] Documentation & API specs *(OpenAPI 3.1 at `/api/v1/docs`, Swagger UI at `/api/v1/docs/ui`)*
+
+### 2.8 Progress Log
+
+| Step | Status | Notes |
+|------|--------|-------|
+| 1. Prisma schema updates | ✅ | Added `deletedAt` to Category & AttributeDefinition; added typed `importType` on DataImport. Run `prisma migrate dev --name phase2_soft_delete_and_import_type` to apply. |
+| 2. Category + Attribute APIs | ✅ | `apps/api/src/routes/categories.ts`, `attributes.ts`. Nested under `/tenants/:tenantId/...`. Tenant-scoped, zod-validated, soft-delete, guards: cycle prevention, child/SKU blockers, attribute type-change protected once SKUs reference it. |
+| 3. CSV import pipeline | ✅ | `apps/api/src/lib/csvImport.ts` (streaming validate + chunked insert, 1k/batch), `lib/storage.ts` (local disk, S3-swappable), `routes/imports.ts` (upload, list, get, validate, process). Mapping suggester is rule-based fuzzy; AI deferred to Phase 6. In-process `setImmediate` worker — swap to BullMQ in Phase 5. New deps: `csv-parse`, `multer`, `@types/multer`. |
+| 4. Onboarding wizard UI | ✅ | `apps/web/src/components/onboarding/` — `WizardNav`, `CompanyDetailsStep` (creates tenant), `CategorySetupStep` (tree builder), `AttributeDefinitionStep` (per-category, 14 types), `CsvUploadStep` (file upload + column mapping with suggestions), `ReviewStep` (runs validate → process), `ProgressStep` (polls every 1.5s, shows errors). `OnboardingPage.tsx` routes between steps. `api.ts` extended with `attributesApi` + `importsApi.upload/validate/process`. |
+| 5. Container updates | ✅ | `docker-compose.yml`: added `UPLOAD_DIR=/data/uploads` env + `api_uploads` named volume on the api service. Dockerfile unchanged (`pnpm install` picks up new `csv-parse` + `multer` deps on rebuild). |
+| 6. Tests | ✅ | Backend: `apps/api/jest.config.cjs` + `tests/csvImport.test.ts` — unit coverage of `coerce()` (all 14 types, edge cases) and `suggestMapping()` (aliases, case-insensitive, unknown-header fallback). Frontend: `apps/web/vitest.config.ts` + `src/test/setup.ts` + `components/onboarding/WizardNav.test.tsx` using `@testing-library/react` + `jsdom` (deps added). DB integration + E2E (Playwright) deferred to Phase 5/6 when scaling tests make sense. |
+| 7. OpenAPI spec + Swagger UI | ✅ | `apps/api/src/openapi.ts` (kept in code so enums stay DRY), `routes/docs.ts` serves JSON at `/api/v1/docs` and Swagger UI (CDN-hosted, zero deps) at `/api/v1/docs/ui`. Covers all Phase 1-2 endpoints. |
+| 8. XLSX support + inline category + standalone import page | ✅ | Backend: `xlsx` (SheetJS) dep; upload route auto-converts `.xls`/`.xlsx` → CSV server-side (first sheet), so the validate/process pipeline is unchanged. File filter accepts `.csv,.xls,.xlsx`. Frontend: `CsvUploadStep` has an inline "+ New category" collapsible; the 3 import steps (`CsvUploadStep`, `ReviewStep`, `ProgressStep`) now accept `tenantId` as a prop. New page `apps/web/src/pages/ImportProductsPage.tsx` at route `/products/import` reuses the trio for existing tenants; nav link updated. |
+| 9. SKU CRUD + Products list page *(early Phase 4 slice)* | ✅ | Backend: `apps/api/src/routes/skus.ts` — list (pagination, filter by category/status, search on code/name), get (with category + attributes + media), create (SKU-code uniqueness, category validation), patch (writes `SkuHistory` audit row), soft-delete (writes audit row). Frontend: `apps/web/src/pages/ProductsPage.tsx` — searchable/filterable table, pagination, delete, "Add SKU" dialog, row → detail. Nav updated to `/products`. OpenAPI extended. |
+| 10. Editable SKU detail page | ✅ | `apps/web/src/pages/SkuDetailPage.tsx` rewritten: view + edit mode (sku code, name, description, category, stock, status), save/cancel, delete-from-detail, attribute values table (view-only for now — per-attribute inline edit deferred one slice). Replaces the productSlice-driven version with a self-contained component using `skusApi` directly. |
+| 11. Per-attribute inline edit | ✅ | Backend: `PUT /tenants/:tenantId/skus/:skuId/attributes/:attributeId` — upsert with type coercion (reuses `coerce()` from csv pipeline), required-field guard, audit row in `SkuHistory` (`attribute_update` / `attribute_clear`). Frontend: `apps/web/src/components/sku/AttributesEditor.tsx` — loads *all* attribute definitions for the SKU's category (not just ones with values), type-specific inputs (checkbox, number, date, datetime-local, select, multiline for long/rich/json, text fallback), save/revert per row with dirty-state detection. Replaces the read-only table on `SkuDetailPage`. `skusApi.setAttribute` added. OpenAPI extended. |
+| 12. Bulk operations on Products list | ✅ | Backend: `POST /skus/bulk-update` (status and/or category, batched audit rows), `POST /skus/bulk-delete` (soft, batched audit), `POST /skus/bulk-export` (CSV; attribute columns auto-detected from the result set; filters or explicit skuIds). Frontend: checkbox column + select-all-page, bulk toolbar appears on selection (set status, export, delete, clear), top-level Export button exports current filtered view when nothing's selected. `skusApi.bulkUpdate/bulkDelete/bulkExport` added. OpenAPI extended. |
 
 ---
 

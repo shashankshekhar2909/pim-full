@@ -143,6 +143,7 @@ model Category {
   attributes       Json?
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
+  deletedAt        DateTime? @map("deleted_at")
 
   tenant               Tenant                @relation(fields: [tenantId], references: [id])
   parent               Category?             @relation("CategoryChildren", fields: [parentCategoryId], references: [id])
@@ -152,6 +153,7 @@ model Category {
 
   @@unique([tenantId, slug])
   @@index([tenantId, parentCategoryId])
+  @@index([tenantId, deletedAt])
   @@map("categories")
 }
 
@@ -170,6 +172,7 @@ model AttributeDefinition {
   displayOrder Int?     @map("display_order")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
 
   tenant        Tenant         @relation(fields: [tenantId], references: [id])
   category      Category       @relation(fields: [categoryId], references: [id])
@@ -177,6 +180,7 @@ model AttributeDefinition {
 
   @@unique([tenantId, categoryId, name])
   @@index([tenantId, categoryId])
+  @@index([tenantId, deletedAt])
   @@map("attribute_definitions")
 }
 
@@ -323,6 +327,7 @@ model DataImport {
   initiatedBy   String    @map("initiated_by")
   fileName      String    @map("file_name") @db.VarChar(255)
   fileUrl       String?   @map("file_url")
+  importType    String    @default("skus") @map("import_type") @db.VarChar(50)
   status        String    @default("pending") @db.VarChar(50)
   totalRows     Int?      @map("total_rows")
   processedRows Int       @default(0) @map("processed_rows")
@@ -338,6 +343,7 @@ model DataImport {
   importErrors  ImportError[]
 
   @@index([tenantId, status])
+  @@index([tenantId, importType])
   @@map("data_imports")
 }
 

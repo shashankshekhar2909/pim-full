@@ -10,6 +10,8 @@ const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const SearchPage = lazy(() => import('./pages/SearchPage'));
 const SkuDetailPage = lazy(() => import('./pages/SkuDetailPage'));
 const OnboardingPage = lazy(() => import('./pages/OnboardingPage'));
+const ImportProductsPage = lazy(() => import('./pages/ImportProductsPage'));
+const ProductsPage = lazy(() => import('./pages/ProductsPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
 const PageLoader: React.FC = () => (
@@ -38,6 +40,8 @@ const App: React.FC = () => {
                     <Route path="search" element={<SearchPage />} />
                     <Route path="skus/:id" element={<SkuDetailPage />} />
                     <Route path="onboarding" element={<OnboardingPage />} />
+                    <Route path="products" element={<ProductsPage />} />
+                    <Route path="products/import" element={<ImportProductsPage />} />
                     <Route path="*" element={<NotFoundPage />} />
                   </Routes>
                 </Suspense>

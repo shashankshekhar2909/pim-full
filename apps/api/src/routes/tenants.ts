@@ -12,8 +12,18 @@ import {
   sendBadRequest,
 } from '../utils/response.js';
 import { slugify } from '@pim/utils';
+import categoriesRouter from './categories.js';
+import attributesRouter from './attributes.js';
+import importsRouter from './imports.js';
+import skusRouter from './skus.js';
 
 const router = Router();
+
+// Nested resources — mounted before tenant-specific routes so params resolve correctly.
+router.use('/:tenantId/categories/:categoryId/attributes', attributesRouter);
+router.use('/:tenantId/categories', categoriesRouter);
+router.use('/:tenantId/imports', importsRouter);
+router.use('/:tenantId/skus', skusRouter);
 
 // ============================================================
 // Validation schemas
@@ -123,14 +133,16 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
         },
       });
 
-      // Create default admin role
-      const adminRole = await tx.role.create({
-        data: {
-          tenantId: newTenant.id,
-          name: 'admin',
-          description: 'Full access administrator',
-          isSystem: true,
-        },
+      // Create default system roles
+      await tx.role.createMany({
+        data: [
+          { tenantId: newTenant.id, name: 'admin', description: 'Full access', isSystem: true },
+          { tenantId: newTenant.id, name: 'editor', description: 'Catalog read/write', isSystem: true },
+          { tenantId: newTenant.id, name: 'viewer', description: 'Read-only access', isSystem: true },
+        ],
+      });
+      const adminRole = await tx.role.findFirstOrThrow({
+        where: { tenantId: newTenant.id, name: 'admin' },
       });
 
       // Create admin user

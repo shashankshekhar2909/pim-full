@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -6,20 +7,29 @@ import {
   Step,
   StepLabel,
   Paper,
-  Button,
-  CircularProgress,
 } from '@mui/material';
 import { useAppSelector, useAppDispatch } from '../store';
-import { nextStep, prevStep } from '../store/slices/onboardingSlice';
+import {
+  nextStep,
+  prevStep,
+  resetOnboarding,
+} from '../store/slices/onboardingSlice';
 import type { OnboardingStep } from '../store/slices/onboardingSlice';
+import CompanyDetailsStep from '../components/onboarding/CompanyDetailsStep';
+import CategorySetupStep from '../components/onboarding/CategorySetupStep';
+import AttributeDefinitionStep from '../components/onboarding/AttributeDefinitionStep';
+import CsvUploadStep from '../components/onboarding/CsvUploadStep';
+import type { UploadSnapshot } from '../components/onboarding/CsvUploadStep';
+import ReviewStep from '../components/onboarding/ReviewStep';
+import ProgressStep from '../components/onboarding/ProgressStep';
 
 const STEP_LABELS: Record<OnboardingStep, string> = {
-  'company-details': 'Company Details',
-  'category-setup': 'Category Setup',
+  'company-details': 'Company',
+  'category-setup': 'Categories',
   'attribute-definition': 'Attributes',
-  'csv-upload': 'Upload Data',
+  'csv-upload': 'Upload CSV',
   review: 'Review',
-  progress: 'Import Progress',
+  progress: 'Progress',
 };
 
 const STEPS: OnboardingStep[] = [
@@ -33,24 +43,53 @@ const STEPS: OnboardingStep[] = [
 
 const OnboardingPage: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { currentStep, isSubmitting } = useAppSelector((state) => state.onboarding);
+  const navigate = useNavigate();
+  const currentStep = useAppSelector((s) => s.onboarding.currentStep);
+  const tenantId = useAppSelector((s) => s.onboarding.tenantId);
   const currentIndex = STEPS.indexOf(currentStep);
+  const [snapshot, setSnapshot] = useState<UploadSnapshot | null>(null);
+
+  const goNext = () => dispatch(nextStep());
+  const goBack = () => dispatch(prevStep());
+
+  const renderStep = () => {
+    switch (currentStep) {
+      case 'company-details':
+        return <CompanyDetailsStep onNext={goNext} />;
+      case 'category-setup':
+        return <CategorySetupStep onNext={goNext} onBack={goBack} />;
+      case 'attribute-definition':
+        return <AttributeDefinitionStep onNext={goNext} onBack={goBack} />;
+      case 'csv-upload':
+        return tenantId
+          ? <CsvUploadStep tenantId={tenantId} onNext={(s) => { setSnapshot(s); goNext(); }} onBack={goBack} />
+          : <Typography color="error">No tenant — please complete step 1 first.</Typography>;
+      case 'review':
+        return snapshot && tenantId
+          ? <ReviewStep tenantId={tenantId} snapshot={snapshot} onNext={goNext} onBack={goBack} />
+          : <Typography color="error">No upload snapshot — please go back and re-upload.</Typography>;
+      case 'progress':
+        return snapshot && tenantId
+          ? <ProgressStep
+              tenantId={tenantId}
+              importId={snapshot.importId}
+              onFinish={() => { dispatch(resetOnboarding()); navigate('/'); }}
+            />
+          : <Typography color="error">Missing import context.</Typography>;
+      default:
+        return null;
+    }
+  };
 
   return (
-    <Box sx={{ maxWidth: 900, mx: 'auto' }}>
-      <Typography variant="h4" fontWeight={700} gutterBottom>
-        Set Up Your Workspace
-      </Typography>
+    <Box sx={{ maxWidth: 960, mx: 'auto' }}>
+      <Typography variant="h4" fontWeight={700} gutterBottom>Set Up Your Workspace</Typography>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-        Follow the steps below to configure your product catalogue and import your data.
+        Follow the steps to configure your catalogue and import your data.
       </Typography>
 
-      <Stepper activeStep={currentIndex} sx={{ mb: 4 }}>
-        {STEPS.map((step) => (
-          <Step key={step}>
-            <StepLabel>{STEP_LABELS[step]}</StepLabel>
-          </Step>
-        ))}
+      <Stepper activeStep={currentIndex} sx={{ mb: 4 }} alternativeLabel>
+        {STEPS.map((s) => (<Step key={s}><StepLabel>{STEP_LABELS[s]}</StepLabel></Step>))}
       </Stepper>
 
       <Paper
@@ -60,39 +99,13 @@ const OnboardingPage: React.FC = () => {
           border: '1px solid',
           borderColor: 'divider',
           borderRadius: 2,
-          minHeight: 300,
-          display: 'flex',
-          flexDirection: 'column',
+          minHeight: 320,
         }}
       >
         <Typography variant="h5" fontWeight={600} gutterBottom>
           {STEP_LABELS[currentStep]}
         </Typography>
-
-        <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Typography variant="body1" color="text.disabled" textAlign="center">
-            The full onboarding wizard — including company details form, category tree builder,
-            attribute definition, CSV upload with column mapping, and import progress tracking — is
-            coming in Phase 2.
-          </Typography>
-        </Box>
-
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
-          <Button
-            variant="outlined"
-            onClick={() => dispatch(prevStep())}
-            disabled={currentIndex === 0 || isSubmitting}
-          >
-            Previous
-          </Button>
-          <Button
-            variant="contained"
-            onClick={() => dispatch(nextStep())}
-            disabled={currentIndex === STEPS.length - 1 || isSubmitting}
-          >
-            {isSubmitting ? <CircularProgress size={20} color="inherit" /> : 'Next'}
-          </Button>
-        </Box>
+        {renderStep()}
       </Paper>
     </Box>
   );

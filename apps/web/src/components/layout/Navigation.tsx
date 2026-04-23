@@ -35,9 +35,9 @@ interface NavItem {
 const navItems: NavItem[] = [
   { label: 'Dashboard', path: '/dashboard', icon: <DashboardIcon /> },
   { label: 'Search', path: '/search', icon: <SearchIcon /> },
-  { label: 'Products', path: '/skus', icon: <InventoryIcon /> },
+  { label: 'Products', path: '/products', icon: <InventoryIcon /> },
   { label: 'Categories', path: '/categories', icon: <CategoryIcon /> },
-  { label: 'Import Data', path: '/onboarding', icon: <UploadFileIcon /> },
+  { label: 'Import Products', path: '/products/import', icon: <UploadFileIcon /> },
   { label: 'Reports', path: '/reports', icon: <AssessmentIcon /> },
   { label: 'Team', path: '/team', icon: <PeopleIcon /> },
   { label: 'Integrations', path: '/integrations', icon: <WebhookIcon /> },
